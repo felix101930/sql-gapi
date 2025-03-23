@@ -22,7 +22,7 @@ load_dotenv(override=True)
 
 # Configure Gemini API
 try:
-    genai.configure(api_key="AIzaSyAinr9sp2nvFKw-_YWnuhba4cgdoXFHDHg")
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel('gemini-2.0-flash')
 except Exception as e:
     logger.error(f"Failed to configure Gemini API: {e}")
