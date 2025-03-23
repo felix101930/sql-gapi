@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-load_dotenv(override=True) 
+load_dotenv()
 
 # Configure Gemini API
 try:
@@ -96,19 +96,28 @@ def get_generated_sql(natural_language_query):
         {natural_language_query}
         
         Rules:
-        1. Generate ONLY the SQL query without any additional text, explanations, or markdown.
-        2. Ensure the query is valid PostgreSQL syntax.
-        3. Use JOINs where appropriate when querying multiple tables.
-        4. Use column names exactly as they appear in the schema.
-        5. Keep the query efficient and focused on answering the specific question.
-        6. When appropriate, include ORDER BY, GROUP BY, or LIMIT clauses to make the results more useful.
-        7. Do not include any SQL comments in the query.
+        1. If the question is about what this app does, how it works, or other meta-questions about the application itself, respond with: "META_QUESTION" and nothing else.
+        2. For all data-related questions, generate ONLY the SQL query without any additional text, explanations, or markdown.
+        3. Ensure the query is valid PostgreSQL syntax.
+        4. Use JOINs where appropriate when querying multiple tables.
+        5. Use column names exactly as they appear in the schema.
+        6. Keep the query efficient and focused on answering the specific question.
+        7. When appropriate, include ORDER BY, GROUP BY, or LIMIT clauses to make the results more useful.
+        8. Do not include any SQL comments in the query.
         
         SQL Query:
         """
         
         response = model.generate_content(prompt)
-        return response.text.strip()
+        sql = response.text.strip()
+        
+        # Clean up the response to remove any code formatting markers
+        sql = sql.replace('```sql', '').replace('```', '').strip()
+        
+        # Remove any backticks that might be used for column or table name quoting
+        sql = sql.replace('`', '"')
+        
+        return sql
     except Exception as e:
         logger.error(f"Gemini API error: {e}")
         return f"Error generating SQL: {str(e)}"
@@ -214,7 +223,16 @@ def main():
         with st.spinner("Generating SQL query..."):
             sql_query = get_generated_sql(query)
         
-        if not sql_query.startswith("Error"):
+        if sql_query.strip() == "META_QUESTION":
+            st.info("""
+            This app converts natural language questions about your data into SQL queries.
+            
+            Instead of asking about the app itself, try asking a question about your database, such as:
+            - "Show me sales data for the last 3 months"
+            - "Which customers spent the most money?"
+            - "Count orders by region and product category"
+            """)
+        elif not sql_query.startswith("Error"):
             if show_sql:
                 with st.expander("Generated SQL Query", expanded=True):
                     st.code(sql_query, language="sql")
